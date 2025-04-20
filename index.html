@@ -4,9 +4,202 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>門洞尺寸計算</title>
-  <!-- CSS & style omitted for brevity -->
+  <style>
+    body { font-family: sans-serif; padding: 1rem; background: #f5f5f5; }
+    .section { background: white; padding: 1rem; margin-bottom: 1rem; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .calculation-section { background: #fffbe6; padding: 1rem; margin-bottom: 1rem; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    label { display: block; margin-top: 0.5rem; font-weight: bold; }
+    input, select { width: 100%; padding: 0.4rem; margin-top: 0.2rem; }
+    input::placeholder { color: #999; text-align: center; }
+    .row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .row input { flex: 1 1 auto; }
+    .compact-input {
+      width: 5rem !important;
+      padding: 0.4rem;
+      text-align: center;
+    }
+    .inline-row { display: flex; gap: 1rem; align-items: flex-end; }
+    .vertical-group { display: flex; flex-direction: column; gap: 0.5rem; }
+    h2 { font-size: 1.2rem; margin-bottom: 0.5rem; }
+    .result { margin-top: 1rem; background: #fffbe6; padding: 0.5rem; border-radius: 8px; font-weight: bold; line-height: 1.8; }
+    .min-highlight { background-color: #ffffaa !important; color: red; font-weight: bold; }
+  </style>
 </head>
 <body>
-  <!-- Content omitted for brevity -->
+  <h2>門洞尺寸計算</h2>
+  <div class="section">
+    <label for="wallMaterial">牆面材質</label>
+    <select id="wallMaterial">
+      <option>水泥</option>
+      <option>磚牆</option>
+      <option>輕隔間</option>
+      <option>木作</option>
+      <option>其他</option>
+    </select>
+    <div id="otherMaterialSection" style="display: none">
+      <label>其他牆面材質</label>
+      <input type="text" placeholder="請輸入材質">
+      <label>翼牆是否補版</label>
+      <select>
+        <option>是</option>
+        <option>否</option>
+      </select>
+    </div>
+
+    <label for="wallType">牆面形式</label>
+    <select id="wallType">
+      <option>雙翼牆</option>
+      <option>雙平牆</option>
+      <option>一翼一平牆</option>
+    </select>
+
+    <label for="hasFrame">有無垂板</label>
+    <select id="hasFrame">
+      <option>有</option>
+      <option>無</option>
+    </select>
+
+    
+
+    <label>門洞寬 (mm)</label>
+    <div class="vertical-group" id="doorWidth">
+      <input type="number" class="compact-input" inputmode="numeric" placeholder="上">
+      <input type="number" class="compact-input" inputmode="numeric" placeholder="中">
+      <input type="number" class="compact-input" inputmode="numeric" placeholder="下">
+    </div>
+
+    
+
+<label>門洞高 (mm)</label>
+    <div class="row" id="doorHeight">
+      <input type="number" class="compact-input" inputmode="numeric" placeholder="左">
+      <input type="number" class="compact-input" inputmode="numeric" placeholder="中">
+      <input type="number" class="compact-input" inputmode="numeric" placeholder="右">
+    </div>
+
+    <label id="wallThicknessLabel">牆面厚度 (mm)</label>
+<div class="row">
+  <input type="number" class="compact-input" inputmode="numeric" placeholder="左上">
+  <input type="number" class="compact-input" inputmode="numeric" placeholder="右上">
+</div>
+<div class="row">
+  <input type="number" class="compact-input" inputmode="numeric" placeholder="左中">
+  <input type="number" class="compact-input" inputmode="numeric" placeholder="右中">
+</div>
+<div class="row">
+  <input type="number" class="compact-input" inputmode="numeric" placeholder="左下">
+  <input type="number" class="compact-input" inputmode="numeric" placeholder="右下">
+</div>
+
+    <div class="inline-row">
+      <div style="flex: 1">
+        <label for="baseHeight">門檻高度 (mm)</label>
+        <input type="number" id="baseHeight" class="compact-input" inputmode="numeric" placeholder="mm">
+      </div>
+      <div style="flex: 1">
+        <label for="floorHeight">地板高度 (mm)</label>
+        <input type="number" id="floorHeight" class="compact-input" inputmode="numeric" placeholder="mm">
+      </div>
+    </div>
+  </div>
+
+  <div class="calculation-section">
+    <h2>尺寸計算</h2>
+    <p style="color: #c00; font-size: 0.9rem; margin-top: -0.5rem;">※以下門框計算值，未加上生產誤差</p>
+    <div class="result" id="calcResults"></div>
+  </div>
+<script>
+  function toggleOtherMaterial() {
+    const material = document.getElementById("wallMaterial").value;
+    document.getElementById("otherMaterialSection").style.display = material === '其他' ? 'block' : 'none';
+  }
+
+  function calculate() {
+    const material = document.getElementById("wallMaterial").value;
+    const wallType = document.getElementById("wallType").value;
+    const hasFrame = document.getElementById("hasFrame").value;
+    const baseHeight = parseFloat(document.getElementById("baseHeight").value) || 0;
+    const floorHeight = parseFloat(document.getElementById("floorHeight").value) || 0;
+    const widthInputs = document.querySelectorAll("#doorWidth input");
+    const heightInputs = document.querySelectorAll("#doorHeight input");
+    const thicknessInputs = document.querySelectorAll("#wallThicknessLabel + .row input, #wallThicknessLabel + .row + .row input, #wallThicknessLabel + .row + .row + .row input");
+
+    widthInputs.forEach(i => i.classList.remove("min-highlight"));
+    heightInputs.forEach(i => i.classList.remove("min-highlight"));
+    thicknessInputs.forEach(i => i.classList.remove("min-highlight"));
+
+    const widthVals = Array.from(widthInputs).map(i => parseFloat(i.value)).filter(v => !isNaN(v));
+    const heightVals = Array.from(heightInputs).map(i => parseFloat(i.value)).filter(v => !isNaN(v));
+    const thicknessVals = Array.from(thicknessInputs).map(i => parseFloat(i.value)).filter(v => !isNaN(v));
+
+    const widthMin = Math.min(...widthVals);
+    const heightMin = Math.min(...heightVals);
+    const thicknessMax = Math.max(...thicknessVals);
+
+    widthInputs.forEach(i => { if (parseFloat(i.value) === widthMin) i.classList.add("min-highlight"); });
+    heightInputs.forEach(i => { if (parseFloat(i.value) === heightMin) i.classList.add("min-highlight"); });
+    thicknessInputs.forEach(i => { if (parseFloat(i.value) === thicknessMax) i.classList.add("min-highlight"); });
+
+    const label = document.getElementById("wallThicknessLabel");
+    if (thicknessMax >= 85 && thicknessMax <= 114) label.textContent = "牆面厚度 (mm) → 小框";
+    else if (thicknessMax >= 115 && thicknessMax <= 155) label.textContent = "牆面厚度 (mm) → 大框";
+    else if (thicknessVals.length > 0) label.textContent = "牆面厚度 (mm) → 特規框";
+    else label.textContent = "牆面厚度 (mm)";
+
+    let wingAdd = material === "木作" ? 0 : 18;
+    let wingAddHalf = material === "木作" ? 0 : 9;
+
+    if (material === "其他") {
+      const otherSelect = document.querySelector("#otherMaterialSection select");
+      const otherValue = otherSelect?.value;
+      if (otherValue === "否") {
+        wingAdd = 0;
+        wingAddHalf = 0;
+      }
+    }
+
+    const A = widthMin - wingAdd - 8;
+    const B = widthMin - 36 - 3;
+    const C = widthMin - 18 - wingAddHalf - 6;
+    const D = heightMin - 6;
+    const E = heightMin - 18 - 3;
+
+    const frameWidth = wallType === "雙翼牆" ? A : wallType === "雙平牆" ? B : C;
+    const frameHeight = hasFrame === "有" ? D : E;
+
+    const F = frameWidth - 42 - 6;
+    const G = frameHeight - 21 - 11 - floorHeight - baseHeight;
+
+    document.getElementById("calcResults").innerHTML = `
+      <div>建議門框寬度：${frameWidth} mm。</div>
+      <div style="font-weight:normal">
+        ${widthMin}(門洞寬最小值) - 
+        ${wallType === '雙翼牆' ? `${wingAdd}(翼牆補版值)` : wallType === '雙平牆' ? `36(平牆補版值)` : `18(平牆補版值) - ${wingAddHalf}(翼牆補版值)`} - 
+        ${wallType === '雙翼牆' ? '8(預量值)' : wallType === '雙平牆' ? '3(預量值)' : '6(預量值)'} = ${frameWidth}
+      </div>
+      <div>建議門框高度：${frameHeight} mm。</div>
+      <div style="font-weight:normal">
+        ${heightMin}(門洞高最小值) - ${hasFrame === '有' ? '6(預量值)' : '18(無垂板補版值) - 3(預量值)'} = ${frameHeight}
+      </div>
+      <div>建議門片寬度：${F} mm。</div>
+      <div style="font-weight:normal">
+        ${frameWidth}(門框寬度) - 42(門框厚度) - 6(門縫值) = ${F}
+      </div>
+      <div>建議門片高度：${G} mm。</div>
+      <div style="font-weight:normal">
+        ${frameHeight}(門框高度) - 21(門框厚度) - 11(門縫值) - ${floorHeight}(地板高度) - ${baseHeight}(門檻高度) = ${G}
+      </div>`;
+  }
+
+  document.querySelectorAll("input, select").forEach(el => {
+    el.addEventListener("input", () => { toggleOtherMaterial(); calculate(); });
+    el.addEventListener("change", () => { toggleOtherMaterial(); calculate(); });
+  });
+
+  window.addEventListener("DOMContentLoaded", () => {
+    toggleOtherMaterial();
+    calculate();
+  });
+</script>
 </body>
 </html>
